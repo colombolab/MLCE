@@ -1,0 +1,16 @@
+* This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+* Main authors: Riccardo Capelli, Claudio Peri
+* All authors and changelog listed in bin/REBELOT.py
+* Please cite the following alongside the current publication (see next point):
+    - Scarabelli et al. 2010, DOI: 10.1016/j.bpj.2010.01.014
+    - Genoni et al. 2012, DOI: 10.1021/jp210568a
+    - Marchetti et al. 2019, DOI: 10.1021/acs.jpclett.9b00191
+* The current development of version 1.2.3 is 1.2.31, and is distributed with the publication "The Answer Lies in the Energy: How Simple Atomistic Molecular Dynamics Simulations may Hold the Key to Epitope Prediction on the Fully Glycosylated SARS-CoV-2 Spike Protein", by Serapian, Marchetti et al., J. Phys. Chem. Lett. 2020
+* Version 1.2.31 (see also changelog in bin/REBELOT.py):
+    - has been modified by Stefano A. Serapian from Version 1.2.3 to accept sugars according to Glycam nomenclature.
+    - has only been tested with mode "-m b", and has problems with mode "-m c" and mode "-m m".
+    - requires the specially-fused forcefield file leaprc.GLYCAM_06j-1_ff14SB.v18_water.tip3p present in the data/ subfolder
+        § the above file can be replaced by other fused forcefield files of choice
+    - *REQUIRES* an amber-compatible pdb (i.e. it CANNOT handle protein preparation steps present in previous versions).
+* Further documentation and installation instructions are available in the doc/ subfolder

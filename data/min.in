@@ -1,0 +1,20 @@
+Test run 1
+ &cntrl
+   ig=42,
+   imin=1,
+   maxcyc=200,
+   cut=12.0,
+   igb=2,
+   saltcon=0.1,
+   gbsa=1,
+   ntpr=10,
+   ntx=1,
+   ntb=0,
+   ntxo=1,
+   ioutfm=0
+ /
+ENERGY
+Group 1
+RES start_number end_number 
+END
+

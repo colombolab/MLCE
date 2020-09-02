@@ -1,0 +1,322 @@
+\documentclass[a4paper,12pt]{book}
+\usepackage{makeidx}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{ifthen}
+\usepackage[table]{xcolor}
+\usepackage{textcomp}
+\usepackage{alltt}
+\usepackage{ifpdf}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\ifpdf
+\usepackage[pdftex,
+            pagebackref=true,
+            %colorlinks=true,
+            %linkcolor=blue,
+            unicode
+           ]{hyperref}
+\else
+\usepackage[ps2pdf,
+            pagebackref=true,
+            colorlinks=true,
+            linkcolor=blue,
+            unicode
+           ]{hyperref}
+\usepackage{pspicture}
+\fi
+\usepackage[utf8]{inputenc}
+\usepackage{mathptmx}
+\usepackage[scaled=.90]{helvet}
+\usepackage{courier}
+\usepackage{sectsty}
+\usepackage[titles]{tocloft}
+\setcounter{tocdepth}{3}
+\renewcommand{\familydefault}{\sfdefault}
+\begin{document}
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+\begin{center}
+\vspace*{0.5cm}
+{\large R.Capelli, C.Peri, G.Colombo}\\
+\vspace*{5cm}
+{\Large REBELOT Reference Manual}\\
+\vspace*{1cm}
+{\large v.1.2.2}\\
+\vspace*{0.5cm}
+{\small February 2017}\\
+\end{center}
+\end{titlepage}
+\pagenumbering{roman}
+\tableofcontents
+\pagenumbering{arabic}
+\hypersetup{pageanchor=true}
+\chapter{Introduction}
+\label{cap1:introduction}
+REBELOT (Renewed and Extended BEppe Layer Over Trajectories) is a workflow script devoted to the study of the energetic footprint of proteins, designed to study the determinants of protein stability as well as the location of putative immunogenic epitopes. \\ \\
+The workflow is composed by two different executables:
+\begin{itemize}
+	\item \texttt{REBELOT.py}, which contains the entire workflow,
+	\item \texttt{pyBEPPE.py}, which perform the (optional) calculations to obtain the position of immunogenic epitopes.
+\end{itemize}
+In this manual, chapter \ref{cap2:installation} explains the installation process and the requirements for REBELOT workflow, chapter \ref{cap3:usage} illustrates the 3 different analysis methods.  
+
+
+
+
+\chapter{Installation}
+\label{cap2:installation}
+\lstset{tabsize=2,basicstyle=\small\ttfamily}
+
+REBELOT is a Python2 script that perform calculations using non-standard libraries and external programs. It is designed to work on UNIX-based systems (it is tested on OS X and Linux).\\
+REBELOT needs some packages to work
+\begin{itemize}
+	\item Python 2.7+
+	\item Numpy 1.8+
+\end{itemize}
+Furthermore, the external programs needed are
+\begin{itemize}
+	\item AMBERTools 15/16
+	\item gnuplot 4.4+ 
+\end{itemize}
+The AMBER MD package is used to perform the minimization on the structure (via the \texttt{sander} executable) and to compute the MM-GBSA per-residue energy decomposition (using the old \texttt{mm\_pbsa.pl} routine, with experimental support for the new python routine, \texttt{MMPBSA.py}). You can also perform multicore structure minimization using \texttt{sander.MPI}, as explained below.   \\
+Gnuplot is used to plot the reconstructed energy matrix of the analyzed protein. \\ \\
+Once you have the gunzipped package \texttt{rebelot\_1.2.2.tar.gz}, put it in the destination folder (e.g. \texttt{/home/rebelot/}) 
+\begin{lstlisting}
+$ mv rebelot_1.2.2.tar.gz /home/rebelot/.
+\end{lstlisting}
+and extract it
+\begin{lstlisting}
+$ cd /home/rebelot
+$ tar xvf rebelot_1.2.2.tar.gz
+\end{lstlisting}
+Now you have to open the script \texttt{REBELOT.py}, located in the \texttt{bin} directory and set the proper position of your python2 executable, just after the \texttt{\#!} at line 1
+\begin{lstlisting}
+#!/path/to/your/python
+\end{lstlisting}
+You can find the location of python executable on your machine using the command \texttt{which}
+\begin{lstlisting}
+$ which python
+/path/to/your/python
+\end{lstlisting}
+And do the same for the \texttt{pyBEPPE.py} script, also in the \texttt{bin} directory.\\
+\textit{\textbf{WARNING}}: check that your \texttt{python} executable is a python2 and \textbf{not} a python3 executable. \\
+You have also to modify the path to retrieve AMBER-related executables:
+\begin{itemize}
+	\item \texttt{tleap};
+	\item \texttt{mm\_pbsa.pl};
+	\item \texttt{MMPBSA.py};
+	\item \texttt{sander}; 
+	\item \texttt{sander.MPI} (optional, for multicore minimization);
+	\item \texttt{mpirun} (optional, for multicore minimization);
+\end{itemize}
+which are at lines 58-63 of the code. \\ \\
+Depending on the AmberTools version that you are using, you have to select the input files for the workflow:
+\begin{itemize}
+	\item AmberTools 14/15:
+	\begin{lstlisting}
+	54	'leaprc_bin': REB_PATH + '/data/leaprc.ff14SB.v14'
+	55	'minin_rc'	: REB_PATH + '/data/min.in'
+	\end{lstlisting}
+	\item Ambertools 16:
+	\begin{lstlisting}
+	54	'leaprc_bin': REB_PATH + '/data/leaprc.ff14SB.v16'
+	55	'minin_rc'	: REB_PATH + '/data/min16.in'
+	\end{lstlisting}
+\end{itemize}
+This choice is needed for changes in the force field (row 54) and in output format for restart files (row 55) in different AmberTools version. \\ \\ 
+Next, set the \texttt{PATH} environment variable to detect the executables
+\begin{lstlisting}
+$ export PATH=$PATH:/home/rebelot/bin			#(bash, zsh,...)
+$ setenv PATH $PATH:/home/rebelot/bin			#(csh, tcsh,...)
+\end{lstlisting}
+Finally REBELOT is ready to work. To test it, simply try
+\begin{lstlisting}
+$ REBELOT.py -h
+\end{lstlisting}
+And check if the usage message is printed without errors (usually related to problem in python libraries).
+
+\chapter{Usage}
+\label{cap3:usage}
+REBELOT is composed by two different programs, as we said in chapter \ref{cap1:introduction}: \\\texttt{REBELOT.py} and \texttt{pyBEPPE.py}. \\
+\texttt{REBELOT.py} is the script that contains the entire workflow, which begins from a reference structure (or a small trajectory) in protein data bank format (.pdb) and returns the energy profile (sections \ref{sec31:single}, \ref{sec32:multi}, and \ref{sec33:cluster}) or the prediction of the epitope(s) position(s) (section \ref{sec34:beppe}). \\ \\
+\texttt{pyBEPPE.py} is the part of the workflow devoted to the computation of the binding zones of the protein from the per-residue energy matrix. It can be used alone using a \texttt{REBELOT.py} output (\texttt{enematrix.dat}) to make one \textit{a posteriori} fix of the sensitivity/specificity threshold for the epitope mapping.
+
+\section{REBELOT.py}
+\texttt{REBELOT.py} can work in three different modes:
+\begin{itemize}
+	\item \textit{Single frame} mode (\texttt{-m s})
+	\item \textit{Multi frame} mode (\texttt{-m m})
+	\item \textit{Cluster} mode (\texttt{-m c})
+	\item \textit{BEPPE} mode (\texttt{-m b})
+\end{itemize}
+The output of the program is inserted in a directory named \texttt{REBELOT} in the root directory; if it already exists, the script move the old directory to \texttt{REBELOT.\$time}, there \texttt{\$time} is the POSIX time when the old REBELOT instance was launched. After the directory move, a new \texttt{REBELOT} directory is created. \\
+There is a common part between all the 3 modalities. \texttt{REBELOT.py} at the beginning reads the pdb structure of the system and using LEaP from AMBERTools\cite{ambertools} creates a reference structure (saved as \texttt{snapshot.AMBER.pdb}) and perform a short minimization in implicit solvent (GBSA) using the sander module. The resulting structure undergo to a MM-GBSA per-residue energy decomposition using mm\_pbsa.pl module\footnote{There is also an unsupported flag, \texttt{--py}, that uses the python module MMPBSA.py instead. However, the results in the majority of cases are very different from the perl module and though this option is considered as experimental.}. There is the possibility to use an existing GBSA matrix or a coevolutionary potential matrix\cite{lui2013network,contini2015many} for the single frame analysis, skipping the minimization and the GBSA calculation. \\ \\
+The energy decomposition for a protein formed by $N$ residues returns a $N \times N$ matrix which contains the mutual non-bonded (electrostatic and van der Waals) interactions between amino acids. The matrix (called $M_{ij}$) can thus be diagonalized and reconstructed using the resulting eigenvalues and eigenvectors
+\begin{equation}
+M_{ij} =  \sum_{\alpha=1}^{N} \lambda_{\alpha} v_{i}^{\alpha} v_{j}^{\alpha} \notag
+\end{equation}
+Where $\lambda_{\alpha}$ is the $\alpha$-th eigenvalue and $\mu_{i}^{\alpha}$ are the $i$-th component of the corresponding eigenvector. Sorting the eigenvector from the most negative to the most positive, we can assume \cite{tiana2004stability,morra2008relationship} that the first eigenvector labeled in this way contains most of the relevant information regarding the stabilization of the system. In practice
+\begin{equation}
+\sum_{\alpha=1}^{N} \lambda_{\alpha} v_{i}^{\alpha} v_{j}^{\alpha}  \simeq  \lambda_{1} v_{i}^{1} v_{j}^{1} ~~~~~ \longrightarrow ~~~~~ M_{ij} \simeq \tilde{M}_{ij} = \lambda_{1} v_{i}^{1} v_{j}^{1}  \notag
+\end{equation}
+In this way we have removed most of the noise of the weaker interaction intensities from the energy matrix. \\ \\
+An alternative way to rebuild the interaction matrix from the diagonalization is to select a subset of eigenvalues/eigenvectors as shown in \cite{genoni2012identification}. This could be useful when a single eigenvectors does not describe properly all the structure (e.g. multidomain proteins). In practice
+\begin{equation}
+M_{ij} \simeq \tilde{M}_{ij} = \sum_{\alpha=1}^{M} \lambda_{\alpha} v_{i}^{\alpha} v_{j}^{\alpha}~~~~~~~ (M<N) \notag
+\end{equation}
+The subset of eigenvector is chosen in this way:
+\begin{enumerate}
+	\item A threshold of significance for the eigenvectors component is set as the median of the absolute value of all the eigenvectors components. If the absolute value of a component is larger than this threshold, that component is considered as significant;
+	\item The first eigenvector is pick;
+	\item All the eigenvectors are parsed, looking for the one which adds most information to the set of selected eigenvectors (e.g. which have the larger number of new significant components). If two eigenvectors add the same amount of information, the one with the most negative eigenvalue is selected.
+	\item In order to be inserted in the set, the eigenvector has to add an amount of information (defined as number of new components divided by the number of residues) greater than 0.01.
+	\item If at least 50\% of the residues are covered by almost 3 eigenvectors, the new eigenvector is rejected and the selection is stopped. Otherwise, the eigenvector is added to the set and a new eigenvector has to be selected (step 3).
+\end{enumerate}
+This decomposition technique (called domain decomposition) can be performed in all the REBELOT modes, using the flag \texttt{-d}.
+
+\subsection{Single frame mode (-m s)}
+\label{sec31:single}
+In single frame mode, REBELOT works with the following syntax:
+\begin{lstlisting}
+	$ REBELOT.py -m s [-d] -f protein.pdb [--minrange aa1 
+				--maxrange aa2] [--matrix matrix.dat | --coevo 
+				coevo.dat] [--mpi np]
+\end{lstlisting}
+where the options refer to
+\begin{center}\begin{tabular}{lll}\topruleOption & Description\\\midrule\texttt{-d}  & Activate domain decomposition \\\texttt{-f filename}   & Structure file \\
+\texttt{--matrix filename} &(opt.) Raw interaction matrix \\
+\texttt{--coevo filename} &(opt.) Coevolutionary potential matrix \\\texttt{--minrange aa}  & (opt.) First amino acid for decomposition \\
+\texttt{--maxrange aa}  & (opt.) Last amino acid for decomposition \\
+\texttt{--mpi np}  & (opt.) Number of threads for minimization \\\bottomrule\end{tabular}\end{center}
+REBELOT in single frame mode generates some output files:
+\begin{itemize}
+	\item \texttt{ele-vdw.dat} which contains the original matrix $M_{ij}$ (if \texttt{--matrix} or \texttt{--coevo} options are not enabled)
+	\item \texttt{EIGENVAL.txt} and \texttt{EIGENVECT.txt}, which contain the eigenvalue and the eigenvectors from the diagonalization of $M_{ij}$;
+	\item \texttt{enematrix.dat}, which contains the reconstructed energy matrix $\tilde{M}_{ij}$ and its plot \texttt{enematrix.png};
+	\item \texttt{snapshot.AMBER.pdb}, which is the structure parsed and possibly repaired by tleap;
+	\item \texttt{enedist.dat}, which contains the distribution of interaction energy vs. the residue position, and the plot \texttt{enedist.png}
+	\item \texttt{REBELOT.log}, which contains useful informations about the run, and all the output given by any part of the workflow.
+\end{itemize}
+There are also other file (e.g. input files created for \texttt{sander}, \texttt{mm\_pbsa.pl} and their output).
+
+\subsection{Multiframe mode (-m m)}
+\label{sec32:multi}
+REBELOT can analyze small trajectories of a system. Having $n$ frames in a trajectory, REBELOT consider every frame obtaining $n$ matrices $M_{ij}$. After the analysis, it computes the average matrix $\langle M_{ij} \rangle$ and diagonalize it, obtaining the eigenvalues and eigenvectors that can be used to reconstruct the matrix $\tilde{M}_{ij}$. Obviously, the computation time scales with the number of frame contained in the trajectory.\\
+In multiple frame mode, REBELOT works with the following syntax:
+\begin{lstlisting}
+	$ REBELOT.py -m m [-d] -f trajectory.pdb [--minrange aa1 
+				--maxrange aa2] [--mpi np]
+\end{lstlisting}
+where the options refer to
+\begin{center}\begin{tabular}{lll}\topruleOption & Description\\\midrule\texttt{-d}  & Activate domain decomposition \\\texttt{-f filename}   & Trajectory file \\\texttt{--minrange aa}  & (opt.) First amino acid for decomposition \\
+\texttt{--maxrange aa}  & (opt.) Last amino acid for decomposition \\
+\texttt{--mpi np}  & (opt.) Number of threads for minimization \\\bottomrule\end{tabular}\end{center}
+REBELOT in multiple frame mode generates some output files:
+\begin{itemize}
+	\item Directories \texttt{FRAME\_xx}, that contains the analysis of every frame, and in particular the original matrices $M_{ij}$ in the file \texttt{ele-vdw.dat} and the reconstructed structures in \texttt{snapshot.AMBER.pdb}.
+	\item \texttt{ele-vdw\_average.dat} which contains the average matrix $\langle M_{ij} \rangle$
+	\item \texttt{EIGENVAL.txt} and \texttt{EIGENVECT.txt}, which contain the eigenvalue and the eigenvectors from the diagonalization of $\langle M_{ij} \rangle$;
+	\item \texttt{enematrix.dat}, which contains the reconstructed energy matrix $\tilde{M}_{ij}$ and its plot \texttt{enematrix.png};
+	\item \texttt{enedist.dat}, which contains the distribution of interaction energy vs. the residue position, and the plot \texttt{enedist.png}
+	\item \texttt{REBELOT.log}, which contains useful informations about the run, and all the output given by any part of the workflow.
+\end{itemize}
+There are also other file (e.g. input files created for \texttt{sander}, \texttt{mm\_pbsa.pl} and their output).
+
+\subsection{Cluster mode (-m c)}
+\label{sec33:cluster}
+REBELOT can analyze clusters results. Having $n$ representative clusters in a trajectory, REBELOT consider every frame obtaining $n$ matrices $M_{ij}$. Having the population for each cluster, it computes the population-weighted average matrix $\langle M_{ij} \rangle$ and diagonalize it, obtaining the eigenvalues and eigenvectors that can be used to reconstruct the matrix $\tilde{M}_{ij}$. Obviously, the computation time scales with the number of frame contained in the trajectory.\\
+In cluster mode, REBELOT works with the following syntax:
+\begin{lstlisting}
+	$ REBELOT.py -m c [-d] -f trajectory.pdb --cluster 
+				clusterfile [--minrange aa1 --maxrange aa2]
+				[--mpi np]
+\end{lstlisting}
+where the options refer to
+\begin{center}\begin{tabular}{lll}\topruleOption & Description\\\midrule\texttt{-d}  & Activate domain decomposition \\\texttt{-f filename}   & Trajectory file \\
+\texttt{--cluster filename}   & Cluster file, explained below \\\texttt{--minrange aa}  & (opt.) First amino acid for decomposition \\
+\texttt{--maxrange aa}  & (opt.) Last amino acid for decomposition \\
+\texttt{--mpi np}  & (opt.) Number of threads for minimization \\\bottomrule\end{tabular}\end{center}
+The cluster file (\texttt{-c} option), has to be a single column text file containing the population for every frame. \\
+REBELOT in cluster mode generates some output files:
+\begin{itemize}
+	\item Directories \texttt{FRAME\_xx}, that contains the analysis of every frame, and in particular the original matrices $M_{ij}$ in the file \texttt{ele-vdw.dat} and the reconstructed structures in \texttt{snapshot.AMBER.pdb}.
+	\item \texttt{ele-vdw\_average.dat} which contains the weighted average matrix $\langle M_{ij} \rangle$
+	\item \texttt{EIGENVAL.txt} and \texttt{EIGENVECT.txt}, which contain the eigenvalue and the eigenvectors from the diagonalization of $\langle M_{ij} \rangle$;
+	\item \texttt{enematrix.dat}, which contains the reconstructed energy matrix $\tilde{M}_{ij}$ and its plot \texttt{enematrix.png};
+	\item \texttt{enedist.dat}, which contains the distribution of interaction energy vs. the residue position, and the plot \texttt{enedist.png}
+	\item \texttt{REBELOT.log}, which contains useful informations about the run, and all the output given by any part of the workflow.
+\end{itemize}
+There are also other file (e.g. input files created for \texttt{sander}, \texttt{mm\_pbsa.pl} and their output).
+
+\subsection{BEPPE mode (-m b)}
+\label{sec34:beppe}
+REBELOT can perform an epitope search and representation (on a PyMOL-readable file \cite{PyMOL}) using the \texttt{pyBEPPE.py} executable in the workflow, like in \cite{scarabelli2010predicting,peri2015prediction}. \\
+The workflow builds the approximated energy matrix $\tilde{M}_{ij}$ for a single structure (like in section \ref{sec31:single}) and then try to identify the residues which are in contact in a metric sense (i.e. under a threshold distance, fixed at 6 \AA of beta carbons). Using the reference structure we build a contact matrix $C_{ij}$ and a matrix of local coupling energy (MLCE) $L_{ij}$ is computed in the following way
+\begin{equation}
+L_{ij} = C_{ij} \circ \tilde{M}_{ij} \notag
+\end{equation}
+where $\circ$ refers to the Hadamard product (or entrywise product). \\
+At this point, the BEPPE algorithm selects the list of the amino acids with the minimal coupling energy to the rest of the protein residues. To define the uncoupled amino acids, we put a threshold on the percentage of the less energetic coupling on all the structure; this affect the sensitivity/specificity of the method. \\
+In BEPPE mode, REBELOT works with the following syntax:
+\begin{lstlisting}
+	$ REBELOT.py -m b [-d] -f protein.pdb [-c threshold] 
+				[-t topology_file] [-M] [--matrix matrix.dat | 
+				--coevo coevo.dat]  [--mpi np] 
+\end{lstlisting}
+where the options refer to
+\begin{center}\begin{tabular}{lll}\topruleOption & Description\\\midrule\texttt{-d}  & Activate domain decomposition \\\texttt{-f filename}   & Structure file \\
+\texttt{--matrix filename} &(opt.) Raw interaction matrix \\
+\texttt{--coevo filename} &(opt.) Coevolutionary potential matrix \\\texttt{-c}  & (opt.) Threshold for the uncoupled residues (default: 15\%)  \\
+\texttt{-t}  & (opt.) Output file containing the contact map \\
+&(default : topology.dat)\\
+\texttt{-M}  & (opt.) Output file containing the Matrix of the Local \\
+& Coupling  energy (mlce.dat)\\
+\texttt{--mpi np}  & (opt.) Number of threads for minimization \\
+\bottomrule\end{tabular}\end{center}
+REBELOT in BEPPE mode generates some output files:
+\begin{itemize}
+	\item \texttt{ele-vdw.dat} which contains the original matrix $M_{ij}$ (if \texttt{--matrix} or \texttt{--coevo} options are not enabled)
+	\item \texttt{EIGENVAL.txt} and \texttt{EIGENVECT.txt}, which contain the eigenvalue and the eigenvectors from the diagonalization of $M_{ij}$;
+	\item \texttt{enematrix.dat}, which contains the reconstructed energy matrix $\tilde{M}_{ij}$ and its plot \texttt{enematrix.png};
+	\item \texttt{snapshot.AMBER.pdb}, which is the structure parsed and possibly repaired by tleap;
+	\item \texttt{beppe\_snapshot.AMBER.pml} which contains the PyMOL layer with the patches;
+	\item \texttt{REBELOT.log}, which contains useful informations about the run, and all the output given by any part of the workflow.
+\end{itemize}
+There are also other file (e.g. input files created for \texttt{sander}, \texttt{mm\_pbsa.pl} and their output).
+
+\section{pyBEPPE.py}
+REBELOT contains also the BEPPE implementation in python, \texttt{pyBEPPE.py}. It is used in BEPPE mode (see previous section) and it can be used alone using the reconstructed matrix (or the eigenvalues/eigenvectors files) obtained with \texttt{REBELOT.py}. It can be used to change the threshold value avoiding the structure minimization and the computation of GBSA matrix (which take 95\% of the calculation time). \\
+\texttt{pyBEPPE.py} works with the following syntax:
+\begin{lstlisting}
+	$ pyBEPPE.py -f protein.pdb  (-e energy_matrix | 
+				-v eigenvectors -a eigenvalues) [-s threshold] 
+				[-t topology_file] [-m]
+\end{lstlisting}
+where the options refer to
+\begin{center}\begin{tabular}{lll}\topruleOption & Description\\\midrule\texttt{-f filename.pdb}   & Structure file \\\texttt{-e enermat}  & Reconstructed energy matrix file  \\
+\texttt{-v eigenvec}  & Eigenvectors file \\
+\texttt{-a eigenval}  & Eigenvalues file \\
+\texttt{-s threshold}  & (opt.) Threshold for the uncoupled residues (default: 15\%) \\
+\texttt{-t topology}  & (opt.) Output file containing the contact map \\
+&(default : topology.dat)\\
+\texttt{-m}  & (opt.) Output file containing the Matrix of the Local  \\
+&Coupling Energies (mlce.dat) \\
+\bottomrule\end{tabular}\end{center}
+\texttt{pyBEPPE.py} generates some output files:
+\begin{itemize}
+	\item \texttt{beppe\_\$filename.pml} which contains the PyMOL layer with the patches, where \texttt{\$filename} is the name of the structure file without the \texttt{.pdb} extension;
+	\item \texttt{beppe\_\$filename.log}, which contains useful informations about the run, and all the output given by any part of the workflow. Also in this case \texttt{\$filename} is the name of the structure file without the \texttt{.pdb} extension.
+\end{itemize}
+
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Bibliography}
+\nocite{*}
+\bibliographystyle{unsrt}
+\bibliography{biblio}
+
+
+\end{document}

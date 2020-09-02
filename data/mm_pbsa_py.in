@@ -1,0 +1,15 @@
+&general
+startframe=1,
+keep_files=2,
+verbose=2,
+use_sander = 0,
+/
+&gb
+igb=5, saltcon=0.00,
+/
+&decomp
+idecomp=4, 
+dec_verbose=3,
+/
+
+
