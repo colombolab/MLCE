@@ -4,6 +4,7 @@ import math
 import operator
 import os
 import sys
+import re  # STEFANO: Tests regular expressions in string
 
 
 def HELP():
@@ -205,12 +206,14 @@ def PDB_CONVERTER(structure, orig_structure):
 
 
 def DISTANCE_MATRIX(pdbfileaccess, topolcontrol, radius, structure):
+
     CBx = [None]*(int(structure[len(structure)-1][6]) -
                   int(structure[0][6]) + 1)  # Coordinates x of Cbeta atom
     CBy = [None]*(int(structure[len(structure)-1][6]) -
                   int(structure[0][6]) + 1)  # Coordinates y of Cbeta atom
     CBz = [None]*(int(structure[len(structure)-1][6]) -
                   int(structure[0][6]) + 1)  # Coordinates z of Cbeta atom
+
     distance_matrix = np.zeros(
         shape=(len(CBx), len(CBx)))  # Contact matrix (1/0)
     distance_CB_CB = np.zeros(shape=(len(CBx), len(CBx)))  # Distance matrix
@@ -239,7 +242,8 @@ def DISTANCE_MATRIX(pdbfileaccess, topolcontrol, radius, structure):
     for line in structure:
         atom = line[2]
         resname = line[4]
-        if atom == 'CB' and resname != 'GLY':
+        # STEFANO TRANSFORMS THIS INTO resname = all other ******KNOWN, AMBER-TRANSLATED****** AA variants. I know this would have better been done with an array or something, but I don't master Python and I'm in a hurry (not GLY!!!!
+        if atom == 'CB' and (resname == 'ALA' or resname == 'CYS' or resname == 'CYX' or resname == 'CYM' or resname == 'ASP' or resname == 'ASH' or resname == 'GLU' or resname == 'GLH' or resname == 'PHE' or resname == 'HIP' or resname == 'HIE' or resname == 'HID' or resname == 'HIS' or resname == 'ILE' or resname == 'LYS' or resname == 'LYN' or resname == 'LEU' or resname == 'MET' or resname == 'ASN' or resname == 'NLN' or resname == 'PRO' or resname == 'HYP' or resname == 'OLP' or resname == 'GLN' or resname == 'ARG' or resname == 'SER' or resname == 'OLS' or resname == 'THR' or resname == 'OLT' or resname == 'VAL' or resname == 'TRP' or resname == 'TYR'):
             num = int(line[6])
             CBx[num-1] = float(line[8])
             CBy[num-1] = float(line[9])
@@ -250,6 +254,30 @@ def DISTANCE_MATRIX(pdbfileaccess, topolcontrol, radius, structure):
             CBx[num-1] = float(line[8])
             CBy[num-1] = float(line[9])
             CBz[num-1] = float(line[10])
+        # Standard Termini when they are isolated residues
+        elif atom == 'CH3' and (resname == 'NME' or resname == 'ACE'):
+            num = int(line[6])
+            CBx[num-1] = float(line[8])
+            CBy[num-1] = float(line[9])
+            CBz[num-1] = float(line[10])
+        # Template for one ion. always check nomenclature
+        elif atom == 'ZN':
+            num = int(line[6])
+            CBx[num-1] = float(line[8])
+            CBy[num-1] = float(line[9])
+            CBz[num-1] = float(line[10])
+        # Template that should hopefully work for all sugars. First letter: 0-6,P-Z. Final letter: D,U,A,B
+        elif atom == 'C1' and re.match(r"[0-6,P-Z].[A,B,D,U]", resname):
+            num = int(line[6])
+            CBx[num-1] = float(line[8])
+            CBy[num-1] = float(line[9])
+            CBz[num-1] = float(line[10])
+
+        # STEFANO'S extra loops for unknown residues in which none of the atoms
+        # Check out format for random ions (ZN), and wildcard criterion for sugars)
+        # STEFANO DEBUG
+        # print(CBx)
+        #print("%s %f" % (resname,CBx))
 
     # builds the distance matrix. Distances between the same residues are set to 0, calculates the coordinates'difference, then the distance using Pitagora for CB-CB. For in-range distances puts the node distance_matrix[i,h] to 1. Else 0.
     length = len(CBx)
@@ -491,6 +519,8 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
     info.sort(key=lambda sl: (sl[0]))
 
     # adding 1 letter residue name
+    # STEFANO ADDS NLN, LYN, ASH, GLH... requires O-glycosylated
+    # X for all other residues/ions
     for i in range(0, len(info)):
         if info[i][1] == 'VAL':
             info[i].append('V')
@@ -504,11 +534,17 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
             info[i].append('F')
         elif info[i][1] == 'ASN':
             info[i].append('N')
+        elif info[i][1] == 'NLN':
+            info[i].append('N')
         elif info[i][1] == 'GLU':
+            info[i].append('E')
+        elif info[i][1] == 'GLH':
             info[i].append('E')
         elif info[i][1] == 'GLN':
             info[i].append('Q')
         elif info[i][1] == 'ASP':
+            info[i].append('D')
+        elif info[i][1] == 'ASH':
             info[i].append('D')
         elif info[i][1] == 'HIS':
             info[i].append('H')
@@ -519,6 +555,8 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
         elif info[i][1] == 'HIP':
             info[i].append('H')
         elif info[i][1] == 'LYS':
+            info[i].append('K')
+        elif info[i][1] == 'LYN':
             info[i].append('K')
         elif info[i][1] == 'ARG':
             info[i].append('R')
@@ -542,6 +580,8 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
             info[i].append('C')
         elif info[i][1] == 'PRO':
             info[i].append('P')
+        else:
+            info[i].append('X')
 
     # opens log file and writes header
     LOG = open("beppe_"+pdbfileaccess.split("/")[-1]+".log", 'w')
@@ -616,7 +656,6 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
 
 
 def PYMOL(pdbfileaccess, pdbfilename, protein_length, scored):
-
     length = len(scored)
     colors = ['marine',
               'orange',
@@ -644,14 +683,19 @@ def PYMOL(pdbfileaccess, pdbfilename, protein_length, scored):
     OUTPUT.write("load "+pdbfilename +
                  "\nhide lines\nshow cartoon\nset cartoon_fancy_helices\ncolor gray60, all\n\n")
     counter = 1
+    # STEFANO MODIFIES COLOUR COUNTER TO GO BACK TO 0 ONCE IT GETS TO 20
+    colorcounter = 0
     for i in range(0, length):
+        if colorcounter == 21:
+            colorcounter = 0
         OUTPUT.write("select patch" + str(counter) + ", (i;,")
         for h in range(0, len(scored[i])):
             if h == len(scored[i])-1:
                 OUTPUT.write(str(scored[i][h]))
             else:
                 OUTPUT.write(str(scored[i][h])+",")
-        OUTPUT.write(")\ncolor "+colors[i]+", (i;,")
+        print("Called %d" % i)
+        OUTPUT.write(")\ncolor "+colors[colorcounter]+", (i;,")
         for h in range(0, len(scored[i])):
             if h == len(scored[i])-1:
                 OUTPUT.write(str(scored[i][h]))
@@ -659,6 +703,7 @@ def PYMOL(pdbfileaccess, pdbfilename, protein_length, scored):
                 OUTPUT.write(str(scored[i][h])+",")
         OUTPUT.write(")\n")
         counter += 1
+        colorcounter += 1
 
     OUTPUT.write("deselect")
     OUTPUT.close()
