@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # REBELOT CHANGELOG ver 1.3alpha
 #
-# 1.3a  - Glycan now moved to -m bg, all the previous modes rolled back to 1.2.3, ported to python3
+# 1.3a  - Glycan option -g added, all the previous modes rolled back to 1.2.3, ported to python3
 # 1.2.31- Glycan support being added progressively by Stefano Serapian
 # 1.2.3 - Membrane proteins now supported (kinda)
 # 1.2.2 - Added support to AmberTools16 (new inputfiles in data)
@@ -76,7 +76,7 @@ def main():
     # 01: check arguments, manage input errors, provide help, initialize input files and output folders.
     ######
 
-    # Set domain, python, and mpi to zero (default)
+    # Set optional parameters to zero (default)
     domain = 0
     python = 0
     mpi = 0
@@ -84,13 +84,16 @@ def main():
     coevo = 0
     ext_mat = 0
     dielectric = 0.
+    glycans = 0
 
     try:
         options, remainder = getopt.getopt(sys.argv[1:],
-                                           'hm:f:dc:tMD:',
-                                           ['help', 'mode=', 'file=', 'minrange=', 'maxrange=',
-                                            'domain', 'cutoff', 'topology', 'mlce', 'py', 'mpi=', 'cluster=',
-                                            'coevo=', 'matrix=', 'dielectric='])
+                                           'hm:f:dc:tMD:g',
+                                           ['help', 'mode=', 'file=', 'minrange=',
+                                            'maxrange=', 'domain', 'cutoff',
+                                            'topology', 'mlce', 'py', 'mpi=',
+                                            'cluster=', 'coevo=', 'matrix=',
+                                            'dielectric=','glycans'])
     except getopt.GetoptError as err:
         print(str(err))
         print('Please use the correct arguments, for usage type --help|-h')
@@ -118,7 +121,7 @@ def main():
         elif opt in ('-M', '--mlce'):
             mlceprint = '-m'
         elif opt in ('-D', '--dielectric'):
-            print(arg)
+            print('Dielectric constant' + arg)
             dielectric = float(arg)
         elif opt in ('--py'):
             python = 1
@@ -136,6 +139,8 @@ def main():
         elif opt in ('--matrix'):
             ext_mat = 1
             ext_mat_path = arg
+        elif opt in ('-g', '--glycans'):
+            glycans = 1
 
     # mandatory arguments
     try:
@@ -148,7 +153,7 @@ def main():
     except NameError:
         Error('Please specify the REBELOT mode (SINGLE, MULTIFRAME, CLUSTER or BEPPE).\n')
 
-    if (mode == 'b' or mode == 'bg') and 'res_range' in vars():
+    if (mode == 'b') and 'res_range' in vars():
         Header()
         Error(
             'With [--range] option enabled it is not possible to start BEPPE.\n')
@@ -163,11 +168,11 @@ def main():
     else:
         res_range = [0, 0]			# needed to use it in Plots()
 
-    if (mode == 'b' or mode == 'bg') and not 'topology' in vars():
+    if (mode == 'b') and not 'topology' in vars():
         topology = ' '
-    if (mode == 'b' or mode == 'bg') and not 'mlceprint' in vars():
+    if (mode == 'b') and not 'mlceprint' in vars():
         mlceprint = ' '
-    if (mode == 'b' or mode == 'bg') and not 'beppe' in vars():
+    if (mode == 'b') and not 'beppe' in vars():
         beppe = 15	  # Default cutoff
     if (mode == 's' or mode == 'm' or mode == 'c') and 'beppe' in vars():
         Header()
@@ -202,7 +207,7 @@ def main():
                       ' for ' + element + ' not found\n')
 
     # Single PDB mode
-    if mode == 's' or mode == 'b' or mode == 'bg':
+    if mode == 's' or mode == 'b':
 
         # Reference structure check
         try:
@@ -239,16 +244,19 @@ def main():
         logfile = open(REB_log, 'w')
         logfile.write("REBELOT log file")
 
-        # Analysis; STEFANO OMITS (new 'bg' stuff added)
-        if mode != 'bg':
+        # PDB preprocessing
+        if glycans == 0:
             AmberPDB(refpdb, workdir, logfile)
         currentpdb = workdir + '/snapshot.AMBER.pdb'
 
-        # STEFANO ADDS
-        if mode == 'bg':
+        if glycans == 1:
+            print('\n/!\\ WARNING /!\\\n')
+            print('GLYCANS OPTION ACTIVATED!')
+            print('THE STRUCTURE WILL NOT BE PREPROCESSED BY TLEAP')
+            print('THE -g OPTION IS RECOMMENDED ONLY FOR THE ANALYSIS OF GLYCANS\n')
             shutil.copyfile(refpdb, currentpdb)
 
-        print(currentpdb)
+        #print(currentpdb)
 
         beppepdb = currentpdb
 
@@ -287,7 +295,7 @@ def main():
 
     # Remove temporary files
         # Cleansweep(folder)
-        if mode == 'b' or mode == 'bg':
+        if mode == 'b':
             os.chdir(folder)
             Beppe(folder, logfile, beppe, beppe_bin,
                   beppepdb, topology, mlceprint)
@@ -1583,33 +1591,6 @@ pyBEPPE	ver 1.0.1 by Claudio Peri, Riccardo Capelli
 [2] Scarabelli G, Morra G, Colombo G. Biophys J. 2010
 [3] Peri C, Sole' O.C., Corrada D., [...], Colombo G. Method Mol Biol 2015
 [4] Contini A, Tiana G. J Chem Phys 2015
-=========================================================================
-=================
-| BEPPE GLYCANS | (-m bg)
-=================
-Explanation TODO
-
-=========================================================================
-Option      example         Type        Description
--------------------------------------------------------------------------
-
--f(file)    structure.pdb   Input       PDB structure to be processed.
---matrix    filename        Input(opt)  Raw "ele-vdw.dat" matrix
--d(domain)                  Input(opt)  Alternative energy approximation
-                                        via domain decomposition [1].
-                                        Default is first eigenvector.
--c(cutoff)  15              Input(opt)  Prediction softness (default 15)
--t(contact) topology.dat    Output(opt) Exported Contact Map
--M          mlce.dat        Output(opt) Exported MLCE Map
--------------------------------------------------------------------------
-SYNOPSYS: REBELOT.py  -m bg  -f structure.pdb  -c 15  -t
-
-
-CHANGELOG VERSIONS:
-REBELOT ver 1.2 is based on:
-ISABEL-M ver 1.0 by Claudio Peri
-ISABEL   ver 14.4 by Dario Corrada
-pyBEPPE	ver 1.0.1 by Claudio Peri, Riccardo Capelli
 =========================================================================
 '''
     print(help)
