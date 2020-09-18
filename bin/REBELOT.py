@@ -337,6 +337,12 @@ def main():
             subprocess.call(["mv", workdir, workdir + "." + str(mtime)])
 
         os.mkdir(workdir)
+        
+        if glycans == 1:
+            print('\n/!\\ WARNING /!\\\n')
+            print('GLYCANS OPTION ACTIVATED!')
+            print('THE STRUCTURE WILL NOT BE PREPROCESSED BY TLEAP')
+            print('THE -g OPTION IS RECOMMENDED ONLY FOR THE ANALYSIS OF GLYCANS\n')
 
         # Set the frame order
         frame_number = 0
@@ -372,11 +378,13 @@ def main():
                   (str(date('%Y-%m-%d %H:%M:%S')), frame, frame_number))
 
             # Analysis STEFANO OMITS (I removed this for now - RC)
-            AmberPDB(refpdb, folder, logfile)
+            if glycans == 0:
+                AmberPDB(refpdb, folder, logfile)
             currentpdb = folder + '/snapshot.AMBER.pdb'
 
             # STEFANO ADDS (I removed this for now - RC)
-            # shutil.copyfile(refpdb,currentpdb)
+            if glycans == 1:
+                shutil.copyfile(refpdb,currentpdb)
 
             # Prepare AMBER input
             resnumber = AmberConfig(
@@ -619,6 +627,7 @@ def AmberPDB(pdb, workdir, logfile):
     # atom number, residue number and chain ID sorting
     pdb_sorted = []
     letters = list(map(chr, list(range(65, 91))))
+    print(letters)
     inc_chain = letters.pop(0)
     inc_atom = 1
     inc_res = 1
