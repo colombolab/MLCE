@@ -627,7 +627,6 @@ def AmberPDB(pdb, workdir, logfile):
     # atom number, residue number and chain ID sorting
     pdb_sorted = []
     letters = list(map(chr, list(range(65, 91))))
-    print(letters)
     inc_chain = letters.pop(0)
     inc_atom = 1
     inc_res = 1
@@ -1364,7 +1363,7 @@ def StoreEnergy(folder, resnumber):
         Error('%s/ele-vdw.dat not found\n' % folder)
 
     for element in raw_data:
-        energymatrix[element[0], element[1]] = element[2]
+        energymatrix[int(element[0]), int(element[1])] = element[2]
 
     return energymatrix
 
