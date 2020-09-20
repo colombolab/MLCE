@@ -442,9 +442,7 @@ def JOIN(patch_strings):
 
     return patch_strings
 
-
 def SCORE(patches, mlce):
-
     patch_average = [0]*len(patches)  # List of patches' average energy
     join = []  # List of joined patches with scores
 
@@ -597,7 +595,8 @@ def WRITE(pdbfileaccess, renumbering, span, scored, structure,
 	
 -------------------------------------------------------------------------
 	Copyright (c) 2010-2015p, National Research Council, CNR-ICRM, MILANO
-	Guido Scarabelli, Claudio Peri, Riccardo Capelli, Giorgio Colombo.
+	Guido Scarabelli, Claudio Peri, Riccardo Capelli, Stefano A. Serapian
+  Giorgio Colombo.
 	
 	This work is licensed under a Creative Commons
 	Attribution-NonCommercial-ShareAlike 3.0 Unported License.
