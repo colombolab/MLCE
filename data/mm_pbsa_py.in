@@ -5,7 +5,7 @@ verbose=2,
 use_sander = 0,
 /
 &gb
-igb=5, saltcon=0.00,
+igb=2, saltcon=0.00, surften=0.0072
 /
 &decomp
 idecomp=4, 

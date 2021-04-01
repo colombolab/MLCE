@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.6
-# REBELOT CHANGELOG ver 1.3.1
+# REBELOT CHANGELOG ver 1.3.2
 #
+# 1.3.2 - Corrected bugs hampering the python (--py) branch, made pyBEPPE.py "777"
 # 1.3.1 - Glycan option optimized, --keep_h option added
 # 1.3a  - Glycan option -g added, all the previous modes rolled back to 1.2.3, ported to python3
 # 1.2.31- Glycan support being added progressively by Stefano Serapian
@@ -68,6 +69,7 @@ def main():
         'sander_bin': '/home/administrator/amber18/bin/sander',
         'mmpbsa_bin': '/home/administrator/amber18/bin/mm_pbsa.pl',
         'mmpbsapy_bin': '/home/administrator/amber18/bin/MMPBSA.py',
+        #'mmpbsapympi_bin': '/home/administrator/amber18/bin/MMPBSA.py.MPI',
         'sandermpi_bin': '/home/administrator/amber18/bin/sander.MPI',
         'mpirun_bin': '/opt/local/bin/mpirun'
     }
@@ -593,7 +595,7 @@ def AmberPDB(pdb, workdir, logfile,keep_h):
             distance = math.sqrt((float(SG[i][11]) - float(SG[j][11]))**2 +
                                  (float(SG[i][12]) - float(SG[j][12]))**2 +
                                  (float(SG[i][13]) - float(SG[j][13]))**2)
-            if distance < 2.1:
+            if distance < 2.15:
                 if not [SG[i][7], SG[i][8]] in S_keys and [SG[j][7], SG[j][8]] in S_keys:
                     S_keys.append([SG[i][7], SG[i][8]])
                     S_keys.append([SG[j][7], SG[j][8]])
@@ -1190,19 +1192,32 @@ def AmberJobs(pdb, folder, logfile, address, python, resnumber, nproc):
 
         logfile.write("\n\n*** MM-GBSA RUN (.py) %s\n" %
                       str(date('%Y-%m-%d %H:%M:%S')))
+                      
+        #STEFANO removes presumable small bug which read unminimised structure
+        #(prot.inpcrd)
 
+        #amberlog = subprocess.Popen("%s -O -i mm_pbsa_py.in -cp %s -y %s 2>&1" %
+        #                            (address['mmpbsapy_bin'], folder + "/prot.prmtop",
+        #                             folder + "/prot.inpcrd"),
+        #                            stdout=subprocess.PIPE,
+        #                            shell=True).communicate()[0].decode('utf-8')
+
+        #STEFANO FIXES THE ABOVE COMMENTED OUT LINE
+        #IF MMPBSA.py was parallelised for decomp too, here is where one would invoke its MPI version with an appropriate branch
+        #However, the dirtier workaround is that sander.MPI should be used on the serial MMPBSA.py-generated input.
         amberlog = subprocess.Popen("%s -O -i mm_pbsa_py.in -cp %s -y %s 2>&1" %
                                     (address['mmpbsapy_bin'], folder + "/prot.prmtop",
-                                     folder + "/prot.inpcrd"),
+                                     folder + "/prot-min.restrt"),
                                     stdout=subprocess.PIPE,
                                     shell=True).communicate()[0].decode('utf-8')
-
+        
         logfile.write("%s" % amberlog)
 
         # Read MM-GBSA output
         try:
+            #STEFANO changes to split by newline only, maybe format has changed between versions
             with open(folder + '/FINAL_DECOMP_MMPBSA.dat', 'r') as f:
-                in_content = f.read().split('\r\n')
+                in_content = f.read().split('\n')
         except IOError:
             Error('MM-GBSA output file not found. Check REBELOT.log for details.')
 
