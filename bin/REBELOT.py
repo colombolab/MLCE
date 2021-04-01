@@ -1,6 +1,7 @@
-#!/usr/bin/env python3
-# REBELOT CHANGELOG ver 1.3alpha
+#!/usr/bin/env python3.6
+# REBELOT CHANGELOG ver 1.3.1
 #
+# 1.3.1 - Glycan option optimized, --keep_h option added
 # 1.3a  - Glycan option -g added, all the previous modes rolled back to 1.2.3, ported to python3
 # 1.2.31- Glycan support being added progressively by Stefano Serapian
 # 1.2.3 - Membrane proteins now supported (kinda)
@@ -27,6 +28,7 @@
 # Modules
 import sys
 import os
+import re
 import subprocess
 import shutil		# Shell interaction
 import random					    # Quotes :)
@@ -62,11 +64,11 @@ def main():
         'mmpbsain_rc': REB_path + '/data/mm_pbsa.in',
         'diel_mmpbsain_rc': REB_path + '/data/diel_mm_pbsa.in',
         'mmpbsapyin_rc': REB_path + '/data/mm_pbsa_py.in',
-        'tleap_bin': '/Users/cape/programs/amber20/bin/tleap',
-        'sander_bin': '/Users/cape/programs/amber20/bin/sander',
-        'mmpbsa_bin': '/Users/cape/programs/amber20/bin/mm_pbsa.pl',
-        'mmpbsapy_bin': '/Users/cape/programs/amber20/bin/MMPBSA.py',
-        'sandermpi_bin': '/Users/cape/programs/amber20/bin/sander.MPI',
+        'tleap_bin': '/home/administrator/amber18/bin/tleap',
+        'sander_bin': '/home/administrator/amber18/bin/sander',
+        'mmpbsa_bin': '/home/administrator/amber18/bin/mm_pbsa.pl',
+        'mmpbsapy_bin': '/home/administrator/amber18/bin/MMPBSA.py',
+        'sandermpi_bin': '/home/administrator/amber18/bin/sander.MPI',
         'mpirun_bin': '/opt/local/bin/mpirun'
     }
     REB_log = '/REBELOT.log'
@@ -85,6 +87,7 @@ def main():
     ext_mat = 0
     dielectric = 0.
     glycans = 0
+    keep_h = 0
 
     try:
         options, remainder = getopt.getopt(sys.argv[1:],
@@ -93,7 +96,7 @@ def main():
                                             'maxrange=', 'domain', 'cutoff',
                                             'topology', 'mlce', 'py', 'mpi=',
                                             'cluster=', 'coevo=', 'matrix=',
-                                            'dielectric=','glycans'])
+                                            'dielectric=','glycans','keep_h'])
     except getopt.GetoptError as err:
         print(str(err))
         print('Please use the correct arguments, for usage type --help|-h')
@@ -141,6 +144,8 @@ def main():
             ext_mat_path = arg
         elif opt in ('-g', '--glycans'):
             glycans = 1
+        elif opt in ('--keep_h'):
+            keep_h  = 1
 
     # mandatory arguments
     try:
@@ -246,15 +251,15 @@ def main():
 
         # PDB preprocessing
         if glycans == 0:
-            AmberPDB(refpdb, workdir, logfile)
+            AmberPDB(refpdb, workdir, logfile,keep_h)
+            string_for_bonds=""
         currentpdb = workdir + '/snapshot.AMBER.pdb'
 
         if glycans == 1:
             print('\n/!\\ WARNING /!\\\n')
             print('GLYCANS OPTION ACTIVATED!')
-            print('THE STRUCTURE WILL NOT BE PREPROCESSED BY TLEAP')
             print('THE -g OPTION IS RECOMMENDED ONLY FOR THE ANALYSIS OF GLYCANS\n')
-            shutil.copyfile(refpdb, currentpdb)
+            string_for_bonds=AmberPDB_Glycans(refpdb, workdir, logfile,keep_h)
 
         #print(currentpdb)
 
@@ -262,7 +267,7 @@ def main():
 
         # Prepare AMBER input
         resnumber = AmberConfig(
-            currentpdb, folder, logfile, address, dielectric)
+            currentpdb, folder, logfile, address, dielectric,string_for_bonds)
 
         if coevo == 0 and ext_mat == 0:
             # Run minimization and MM_GBSA
@@ -311,7 +316,7 @@ def main():
             Error('Trajectory file ' + refpdb + ' not found\n')
 
         # Split the PDB file
-        traj = PDBFILE.read().split('TER\nENDMDL\n')
+        traj = re.split('TER\s*\nENDMDL\s*\n',PDBFILE.read())
         # Remove the last empty list element
         traj.pop()
 
@@ -341,7 +346,6 @@ def main():
         if glycans == 1:
             print('\n/!\\ WARNING /!\\\n')
             print('GLYCANS OPTION ACTIVATED!')
-            print('THE STRUCTURE WILL NOT BE PREPROCESSED BY TLEAP')
             print('THE -g OPTION IS RECOMMENDED ONLY FOR THE ANALYSIS OF GLYCANS\n')
 
         # Set the frame order
@@ -379,16 +383,17 @@ def main():
 
             # Analysis STEFANO OMITS (I removed this for now - RC)
             if glycans == 0:
-                AmberPDB(refpdb, folder, logfile)
+                AmberPDB(refpdb, folder, logfile,keep_h)
+                string_for_bonds=""
             currentpdb = folder + '/snapshot.AMBER.pdb'
 
             # STEFANO ADDS (I removed this for now - RC)
             if glycans == 1:
-                shutil.copyfile(refpdb,currentpdb)
+                string_for_bonds=AmberPDB_Glycans(refpdb, folder, logfile,keep_h)
 
             # Prepare AMBER input
             resnumber = AmberConfig(
-                currentpdb, folder, logfile, address, dielectric)
+                currentpdb, folder, logfile, address, dielectric,string_for_bonds)
             print("RESNUMBER: %d" % resnumber)
             # Run minimization and MM_GBSA
             AmberJobs(currentpdb, folder, logfile,
@@ -428,7 +433,7 @@ def main():
         Fine(0)
 
 
-def AmberPDB(pdb, workdir, logfile):
+def AmberPDB(pdb, workdir, logfile,keep_h):
 
     print("\nI-", date('%Y-%m-%d %H:%M:%S'),
           "converting pdb format for AMBER...\n")
@@ -616,13 +621,16 @@ def AmberPDB(pdb, workdir, logfile):
         if pattern in Cterms and (pdb_content[i][3] == ' O2 ' or pdb_content[i][3] == ' OC2'):
             pdb_content[i][3] = ' OXT'
 
+    if keep_h:
+        pdb_noH = pdb_content
+    else:
     # Hydrogens remove
-    pdb_noH = []
-    for line in pdb_content:
-        if line[3][1] == 'H' or line[3][0] == 'H':
-            pass
-        else:
-            pdb_noH.append(line)
+        pdb_noH = []
+        for line in pdb_content:
+            if line[3][1] == 'H' or line[3][0] == 'H':
+                pass
+            else:
+                pdb_noH.append(line)
 
     # atom number, residue number and chain ID sorting
     pdb_sorted = []
@@ -657,11 +665,11 @@ def AmberPDB(pdb, workdir, logfile):
 
         # Right-justified atom and residue number
         deep_line[1] = "% 5d" % inc_atom
-        deep_line[8] = "% 4d" % inc_res
+        deep_line[8] = "%4d" % inc_res
         deep_line[7] = "%s" % inc_chain
 
-        if inc_res >= 1000:
-            deep_line[9] = ''
+        #if inc_res >= 1000:
+        #    deep_line[9] = ''
 
         # Add new line to pdb
         pdb_sorted.append(deep_line)
@@ -696,8 +704,340 @@ def AmberPDB(pdb, workdir, logfile):
     # Update log
     logfile.write("\nI- file <%s> converted in AMBER format\n" % pdb)
 
+def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
 
-def AmberConfig(pdb, folder, logfile, address, dielectric):
+    print("\nI-", date('%Y-%m-%d %H:%M:%S'),
+          "converting pdb format for AMBER...\n")
+
+    logfile.write("\n\n*** AMBER PDB CONVERSION %s" %
+                  str(date('%Y-%m-%d %H:%M:%S')))
+
+
+    # Open the original pdb file and the destination pdb file
+    pdb_infile = open(pdb, 'r')
+    pdb_outfile = open(workdir + '/snapshot.AMBER.pdb', 'w')
+
+    # Store original pdb data in a list of lines
+    pdb_data = pdb_infile.read().split('\n')
+
+    # Close the input file
+    pdb_infile.close()
+
+    # Create an empty list
+    pdb_content = []
+
+    # Fill the chain if it does not exist
+    chainid = 65
+
+    for line in pdb_data:
+        # Check if the line contains atom informations
+        #if 'TER' in line:
+         #   chainid += 1
+        if len(pdb_content) > 0:
+            if 'OXT' in pdb_content[-1][3]:
+                chainid += 1
+        if line[:4] == 'ATOM':
+            if line[21] == ' ':
+                pdb_content.append([line[0:5],          # [0] Datatype
+                                                        # [1] Atom serial number
+                                                        line[5:11],
+                                                        # [2] (NOT DEFINED IN STANDARD)
+                                                        line[11],
+                                                        # [3] Atom name
+                                                        line[12:16],
+                                                        # [4] Alternate location
+                                                        line[16],
+                                                        # [5] Residue name
+                                                        line[17:20],
+                                                        # [6] (NOT DEFINED IN STANDARD)
+                                                        line[20],
+                                                        # [7] Chain ID
+                                                        chr(chainid),
+                                                        # [8] Residue seq. number
+                                                        line[22:26],
+                                                        # [9] Code for residues insertion
+                                                        line[26],
+                                                        line[27:30],		# [10]
+                                                        # [11] x coordinate
+                                                        line[30:38],
+                                                        # [12] y coordinate
+                                                        line[38:46],
+                                                        # [13] z coordinate
+                                                        line[46:54],
+                                                        # [14] Occupancy volume
+                                                        line[54:60],
+                                                        # [15] T-factor
+                                                        line[60:66],
+                                                        line[66:len(line)]])  # [16] charge, atom type, etc.
+            else:
+                pdb_content.append([line[0:5],          # [0] Datatype
+                                                        # [1] Atom serial number
+                                                        line[5:11],
+                                                        # [2] (NOT DEFINED IN STANDARD)
+                                                        line[11],
+                                                        # [3] Atom name
+                                                        line[12:16],
+                                                        # [4] Alternate location
+                                                        line[16],
+                                                        # [5] Residue name
+                                                        line[17:20],
+                                                        # [6] (NOT DEFINED IN STANDARD)
+                                                        line[20],
+                                                        # [7] Chain ID
+                                                        line[21],
+                                                        # [8] Residue seq. number
+                                                        line[22:26],
+                                                        # [9] Code for residues insertion
+                                                        line[26],
+                                                        line[27:30],		# [10]
+                                                        # [11] x coordinate
+                                                        line[30:38],
+                                                        # [12] y coordinate
+                                                        line[38:46],
+                                                        # [13] z coordinate
+                                                        line[46:54],
+                                                        # [14] Occupancy volume
+                                                        line[54:60],
+                                                        # [15] T-factor
+                                                        line[60:66],
+                                                        line[66:len(line)]])  # [16] charge, atom type, etc.
+
+    
+   
+
+
+    Nterms = []
+    Cterms = []
+
+    for i in range(0, len(pdb_content)):
+        # Find N-term residues
+        if pdb_content[i][3] == ' N  ' or pdb_content[i][3] == 'N   ':
+            if pdb_content[i+1][3] == ' H1 ':
+                Nterms.append([pdb_content[i][7], pdb_content[i][8]])
+        # Find C-term residues
+        elif pdb_content[i][3] == ' C  ' or pdb_content[i][3] == 'C   ':
+            if pdb_content[i+1][3] == ' O1 ' or pdb_content[i+1][3] == ' OC1' \
+                    or pdb_content[i+1][3] == ' O2 ' or pdb_content[i+1][3] == ' OC2':
+                Cterms.append([pdb_content[i][7], pdb_content[i][8]])
+
+    # Histidine fix
+    histidine_list = []
+    prot_list = []
+
+    # Create a list of all the histidines in the system
+    for i in range(0, len(pdb_content)):
+        if pdb_content[i][5] == 'HIS':
+            id_tag = [pdb_content[i][5], pdb_content[i][7], pdb_content[i][8]]
+            if not id_tag in histidine_list:
+                histidine_list.append(id_tag)
+                prot_list.append('')
+            if pdb_content[i][3] == ' HD1':
+                hist_index = histidine_list.index(id_tag)
+                prot_list[hist_index] += 'HD1'
+            elif pdb_content[i][3] == ' HE2':
+                hist_index = histidine_list.index(id_tag)
+                prot_list[hist_index] += 'HE2'
+
+    for i in range(0, len(pdb_content)):
+        if pdb_content[i][5] == 'HIS':
+            id_tag = [pdb_content[i][5], pdb_content[i][7], pdb_content[i][8]]
+            if id_tag in histidine_list:
+                hist_index = histidine_list.index(id_tag)
+                if prot_list[hist_index] == 'HD1HE2':
+                    pdb_content[i][5] = 'HIP'
+                elif prot_list[hist_index] == 'HE2':
+                    pdb_content[i][5] = 'HIE'
+                else:
+                    pdb_content[i][5] = 'HID'
+
+    # Isoleucine fix
+    for i in range(0, len(pdb_content)):
+        if pdb_content[i][5] == 'ILE' and pdb_content[i][3] == ' CD ':
+            pdb_content[i][3] = ' CD1'
+
+    if keep_h:
+        pdb_noH = pdb_content
+    else:
+    # Hydrogens remove
+        pdb_noH = []
+        for line in pdb_content:
+            if line[3][1] == 'H' or line[3][0] == 'H':
+                pass
+            else:
+                pdb_noH.append(line) 
+    # Sulfur atoms
+    SG = []
+    for i in range(0, len(pdb_content)):
+        if ( pdb_content[i][5] == 'CYS' or pdb_content[i][5] == 'CYX') and pdb_content[i][3] == ' SG ':
+            SG.append(pdb_content[i])
+            
+
+    # disulphide bonds
+    bridge = []
+    S_keys = []
+    for i in range(0, len(SG)):
+        for j in range(0,i):
+            distance = math.sqrt((float(SG[i][11]) - float(SG[j][11]))**2 +
+                                 (float(SG[i][12]) - float(SG[j][12]))**2 +
+                                 (float(SG[i][13]) - float(SG[j][13]))**2)
+            if distance < 2.15:
+                if (not [SG[i][3],SG[i][7], SG[i][8]] in S_keys ) and  (not [SG[j][3],SG[j][7], SG[j][8]] in S_keys ):
+                    S_keys.append([SG[i][3],SG[i][7], SG[i][8]])
+                    S_keys.append([SG[j][3],SG[j][7], SG[j][8]])
+                    bridge.append(1)
+                    bridge.append(1)
+
+    # Cysteine fix (old, FF03 dont have support for N/C-terminal CYX)
+    for i in range(0, len(pdb_content)):
+        id_tag = [pdb_content[i][7], pdb_content[i][8]]
+        if id_tag in S_keys:
+            bridge_index = S_keys.index(id_tag)
+            if bridge[bridge_index] == 1:
+                pdb_content[i][5] = 'CYX'
+    
+
+    # atom number, residue number and chain ID sorting
+    pdb_sorted = []
+    letters = list(map(chr, list(range(65, 91))))
+    inc_chain = letters.pop(0)
+    inc_atom = 1
+    inc_res = 1
+    current_chain = pdb_noH[0][7]
+    current_res = pdb_noH[0][8]
+    current_res_type = pdb_noH[0][5]
+    prev_resn = 1
+    prev_ins = pdb_noH[0][9]
+    gly_code   = re.compile('[0-6,P-Z].[D,U,A,B]')
+
+    for line in pdb_noH:
+        deep_line = copy.deepcopy(line)
+
+        # Residue number
+        newer_res = line[8]
+        if newer_res != current_res:
+            inc_res += 1
+            current_res = newer_res
+           
+            if gly_code.match(current_res_type):     # Add TER after every glycan
+                TER = ["TER","","","","","","","","","","","","","","",""]
+                #inc_atom += 1
+                pdb_sorted.append(TER)
+            current_res_type = line[5]
+
+        # Chain ID
+        newer_chain = line[7]
+        # Change of chain or last atom
+        if newer_chain != current_chain:
+            TER = ["TER","","","","","","","","","","","","","","",""]
+            #inc_atom += 1
+            inc_chain = letters.pop(0)
+            current_chain = newer_chain
+            pdb_sorted.append(TER)
+
+        # Right-justified atom and residue number
+        deep_line[1] = "% 5d" % inc_atom
+        deep_line[8] = "%4d" % inc_res
+        deep_line[7] = "%s" % inc_chain
+        
+        #if inc_res >= 1000:
+        #    deep_line[8] = deep_line[8].replace(" ","")
+        
+        # Add new line to pdb
+        pdb_sorted.append(deep_line)
+        prev_resn = deep_line[5]
+        prev_ins = deep_line[9]
+
+        # Increase atom counter
+        inc_atom += 1
+
+    # Sulfur atoms with sorted numbering
+    SG = []
+    for i in range(0, len(pdb_sorted)):
+        if ( pdb_sorted[i][5] == 'CYS' or pdb_sorted[i][5] == 'CYX') and pdb_sorted[i][3] == ' SG ':
+            SG.append(pdb_sorted[i])
+            
+
+    # disulphide bonds
+    bridge = []
+    S_keys = []
+    for i in range(0, len(SG)):
+        for j in range(0,i):
+            distance = math.sqrt((float(SG[i][11]) - float(SG[j][11]))**2 +
+                                 (float(SG[i][12]) - float(SG[j][12]))**2 +
+                                 (float(SG[i][13]) - float(SG[j][13]))**2)
+            if distance < 2.15:
+                if (not [SG[i][3],SG[i][7], SG[i][8]] in S_keys ) and  (not [SG[j][3],SG[j][7], SG[j][8]] in S_keys ):
+                    S_keys.append([SG[i][3],SG[i][7], SG[i][8]])
+                    S_keys.append([SG[j][3],SG[j][7], SG[j][8]])
+                    bridge.append(1)
+                    bridge.append(1)
+
+    # C1 atoms
+    C1 = []
+    for i in range(0, len(pdb_sorted)):
+        if (pdb_sorted[i][3] == ' C1 '):
+            C1.append(pdb_sorted[i])
+
+    # NLN , O atoms
+    oxigen_code= re.compile('\s*O[0-6]\s*')
+    others_to_c1 = []
+    for i in range(0, len(pdb_sorted)):
+        if (pdb_sorted[i][5] == 'NLN' or ( gly_code.match(pdb_sorted[i][5]) and oxigen_code.match(pdb_sorted[i][3]) )):
+            others_to_c1.append(pdb_sorted[i])
+
+   
+    # Other Bonds
+    Bonds_keys=[]
+    for c1 in C1:
+        old_distance = 1000
+        old_atom = []
+        for i in range(0, len(others_to_c1)):
+            new_distance = math.sqrt((float(c1[11]) - float(others_to_c1[i][11]))**2 +
+                                 (float(c1[12]) - float(others_to_c1[i][12]))**2 +
+                                 (float(c1[13]) - float(others_to_c1[i][13]))**2)
+            if (old_distance > new_distance) and ( c1[8] != others_to_c1[i][8]):
+                old_atom = others_to_c1[i]
+                old_distance = new_distance
+        
+        Bonds_keys.append([c1[3],c1[7],c1[8],old_atom[3],old_atom[7],old_atom[8]])    
+
+    # String for bonds
+    all_bonds=""
+    for i in range(0,len(S_keys),2):
+        all_bonds += "bond mol." + str(S_keys[i][2]).replace(" ","") + "." + str(S_keys[i][0]).replace(" ","") + " mol." + str(S_keys[i+1][2]).replace(" ","") + "." + str(S_keys[i+1][0]).replace(" ","") + "\n"
+    
+    for i in range(0,len(Bonds_keys)):
+        all_bonds += "bond mol." +  str(Bonds_keys[i][2]).replace(" ","") + "." + str(Bonds_keys[i][0]).replace(" ","") + " mol." + str(Bonds_keys[i][5]).replace(" ","") + "." + str(Bonds_keys[i][3]).replace(" ","") + "\n"
+
+    # Writing pdb file (snapshot.AMBER.pdb)
+    pdb_outfile.write("TITLE     REBELOT\nMODEL	     1\n")
+    for line in pdb_sorted:
+        outline = ''
+        # Formatting for > 10000 atoms
+        if 'TER' not in line:
+            if int(line[1]) >= 10000:
+                line[0] += ''
+            else:
+                line[0] += ' '
+        for col in line:
+            outline += col
+        pdb_outfile.write("%s\n" % outline)
+
+    # Add a TER and a ENDMDL at the end of the structure
+    pdb_outfile.write("TER\n")
+    pdb_outfile.write("ENDMDL\n")
+
+    # Close pdb file
+    pdb_outfile.close()
+
+    # Update log
+    logfile.write("\nI- file <%s> converted in AMBER format\n" % pdb)
+
+    return all_bonds
+
+
+
+def AmberConfig(pdb, folder, logfile, address, dielectric, bondstring=""):
 
     print("I- %s configuring AMBER input files..." %
           str(date('%Y-%m-%d %H:%M:%S')))
@@ -710,10 +1050,11 @@ def AmberConfig(pdb, folder, logfile, address, dielectric):
 
     # Add the tleap file writing part
     content += '''
-protein = loadpdb %s
-saveamberparm  protein prot.prmtop prot.inpcrd
+mol = loadpdb %s 
+%s
+saveamberparm  mol prot.prmtop prot.inpcrd
 quit
-''' % pdb
+''' % (pdb, bondstring)
 
     # Write the tleap file
     with open(folder + '/leaprc.ff14', 'w') as f:
@@ -1382,7 +1723,7 @@ def AverageEnergy(workdir, frame_number, resnumber, multienergy):
     for i in range(0, resnumber):
         for j in range(0, resnumber):
             avg = "%.3f" % ave_mat[i, j]
-            f.write("%4s%4s%12s\n" % (str(i), str(j), avg))
+            f.write("%5s%5s%12s\n" % (str(i), str(j), avg))
 
     f.close()
 
@@ -1401,7 +1742,7 @@ def ClustersEnergy(workdir, frame_number, resnumber, multienergy, cluster_length
     for i in range(0, resnumber):
         for j in range(0, resnumber):
             avg = "%.3f" % ave_mat[i, j]
-            f.write("%4s%4s%12s\n" % (str(i), str(j), avg))
+            f.write("%5s%5s%12s\n" % (str(i), str(j), avg))
 
     f.close()
 
@@ -1432,10 +1773,10 @@ def Header():
 			
 		Renewed and Extended BEppe Layer On Trajectories
 				
-				    ver. 1.3 alpha
+				    ver. 1.3.1
 
 --------------------------------------------------------------------------------
-                             Copyright (c) 2011-2020, 
+                             Copyright (c) 2011-2021, 
         Riccardo Capelli, Claudio Peri, Dario Corrada, Stefano A. Serapian
 		
                   This work is licensed under a Creative Commons
@@ -1489,6 +1830,7 @@ Option     example         Type           Description
 --minrange 5             Input(opt)     Range of residues for which
 --maxrange 30                           interaction energy matrix will be
                                         calculated (default: all)
+-g                       Input(opt)     Add terms for glycans treatment
 -------------------------------------------------------------------------
 SYNOPSYS: REBELOT.py  -m s -f structure.pdb  --minrange 1 --maxrange 100
 	
@@ -1516,6 +1858,7 @@ Option     example      Type        Description
 --minrange 5            Input(opt)  Range of residues for which
 --maxrange 30                       interaction energy matrix will be
                                     calculated (default: all)
+-g                      Input(opt)  Add terms for glycans treatment
 -------------------------------------------------------------------------
 SYNOPSYS: REBELOT.py  -m m  -f traj.pdb  --minrange 1 --maxrange 100
 
@@ -1543,6 +1886,7 @@ Option     example      Type        Description
 --minrange 5            Input(opt)  Range of residues for which
 --maxrange 30                       interaction energy matrix will be
                                     calculated (default: all)
+-g                      Input(opt)  Add terms for glycans treatment
 -------------------------------------------------------------------------
 SYNOPSYS: REBELOT.py  -m m  -f traj.pdb  --minrange 1 --maxrange 100
 
@@ -1585,12 +1929,13 @@ Option      example         Type        Description
 -c(cutoff)  15              Input(opt)  Prediction softness (default 15)
 -t(contact) topology.dat    Output(opt) Exported Contact Map
 -M          mlce.dat        Output(opt) Exported MLCE Map
+-g                          Input(opt)  Add terms for glycans treatment
 -------------------------------------------------------------------------
 SYNOPSYS: REBELOT.py  -m b  -f structure.pdb  -c 15 -t
 
 
 CHANGELOG VERSIONS:
-REBELOT ver 1.2 is based on:
+REBELOT ver 1.3 is based on:
 ISABEL-M ver 1.0 by Claudio Peri
 ISABEL   ver 14.4 by Dario Corrada
 pyBEPPE	ver 1.0.1 by Claudio Peri, Riccardo Capelli
