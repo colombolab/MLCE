@@ -1,4 +1,4 @@
-#!/data1/sw/python/3.4.10/bin/python3 
+#!/usr/bin/env python3.43.43.43.4 
 # REBELOT CHANGELOG ver 1.3.2
 #
 # 1.3.2 - Corrected bugs hampering the python (--py) branch, made pyBEPPE.py "777"
@@ -60,7 +60,7 @@ def main():
                                shell=True).communicate()[0].decode('utf-8').replace('\n', '')
     address = {
         'gnuplot_bin': GP_path,
-        'leaprc_rc': REB_path + '/data/leaprc.protein.phosphomod.ff14SB-water.tip3p-gaff-atp.prep-atp.frcmod-MG.prep-MG.frcmod-DEX.prepc-DEX.frcmod',
+        'leaprc_rc': REB_path + '/data/leaprc.protein.ff14SB',
         'minin_rc': REB_path + '/data/min16.in',
         'mmpbsain_rc': REB_path + '/data/mm_pbsa.in',
         'diel_mmpbsain_rc': REB_path + '/data/diel_mm_pbsa.in',
@@ -1237,14 +1237,14 @@ def AmberJobs(pdb, folder, logfile, address, python, resnumber, nproc):
                 pass
             elif len(record) == 20 and ctrl == 0:
                 en_matrix[int(record[0][3:]) - 1, int(record[1][3:]) - 1] += \
-                    float("%.2f" % float(record[5])) + float("%.2f" % float(record[8])) + float(
-                        "%.2f" % float(record[11])) + float("%.2f" % float(record[14]))
+                    float("%.5f" % float(record[5])) + float("%.5f" % float(record[8])) + float(
+                        "%.5f" % float(record[11])) + float("%.5f" % float(record[14]))
             else:
                 pass
 
         for i in range(0, en_matrix.shape[0]):
             for j in range(0, en_matrix.shape[1]):
-                out_content += '%4d  %4d  %10.3f\n' % \
+                out_content += '%4d  %4d  %10.5f\n' % \
                     (i, j, en_matrix[i, j])
 
         with open(folder + '/ele-vdw.dat', 'w') as f:
@@ -2028,7 +2028,7 @@ def AverageEnergy(workdir, frame_number, resnumber, multienergy):
 
     for i in range(0, resnumber):
         for j in range(0, resnumber):
-            avg = "%.3f" % ave_mat[i, j]
+            avg = "%.5f" % ave_mat[i, j]
             f.write("%5s%5s%12s\n" % (str(i), str(j), avg))
 
     f.close()
@@ -2047,7 +2047,7 @@ def ClustersEnergy(workdir, frame_number, resnumber, multienergy, cluster_length
 
     for i in range(0, resnumber):
         for j in range(0, resnumber):
-            avg = "%.3f" % ave_mat[i, j]
+            avg = "%.5f" % ave_mat[i, j]
             f.write("%5s%5s%12s\n" % (str(i), str(j), avg))
 
     f.close()
