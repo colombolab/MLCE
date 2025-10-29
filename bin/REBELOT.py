@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/python3.8 
 # REBELOT CHANGELOG ver 1.3.2
 #
 # 1.3.2 - Corrected bugs hampering the python (--py) branch, made pyBEPPE.py "777"
@@ -65,13 +65,13 @@ def main():
         'mmpbsain_rc': REB_path + '/data/mm_pbsa.in',
         'diel_mmpbsain_rc': REB_path + '/data/diel_mm_pbsa.in',
         'mmpbsapyin_rc': REB_path + '/data/mm_pbsa_py.in',
-        'tleap_bin': '/home/administrator/amber18/bin/tleap',
-        'sander_bin': '/home/administrator/amber18/bin/sander',
-        'mmpbsa_bin': '/home/administrator/amber18/bin/mm_pbsa.pl',
-        'mmpbsapy_bin': '/home/administrator/amber18/bin/MMPBSA.py',
+        'tleap_bin': '/opt/amber24/bin/tleap',
+        'sander_bin': '/opt/amber24/bin/sander',
+        'mmpbsa_bin': '/opt/amber24/bin/mm_pbsa.pl',
+        'mmpbsapy_bin': '/opt/amber24/bin/MMPBSA.py',
         #'mmpbsapympi_bin': '/home/administrator/amber18/bin/MMPBSA.py.MPI',
-        'sandermpi_bin': '/home/administrator/amber18/bin/sander.MPI',
-        'mpirun_bin': '/opt/local/bin/mpirun'
+        'sandermpi_bin': '/opt/amber24/bin/sander',
+        'mpirun_bin': '/usr/bin/mpirun'
     }
     REB_log = '/REBELOT.log'
     beppe_bin = REB_path + '/bin/pyBEPPE.py'
@@ -578,13 +578,13 @@ def AmberPDB(pdb, workdir, logfile,keep_h):
 
     # Isoleucine fix
     for i in range(0, len(pdb_content)):
-        if pdb_content[i][5] == 'ILE' and pdb_content[i][3] == ' CD ':
-            pdb_content[i][3] = ' CD1'
+        if pdb_content[i][5] == 'ILE' and pdb_content[i][3] == 'CD  ':
+            pdb_content[i][3] = 'CD1 '
 
     # Sulfur atoms
     SG = []
     for i in range(0, len(pdb_content)):
-        if pdb_content[i][5] == 'CYS' and pdb_content[i][3] == ' SG ':
+        if pdb_content[i][5] == 'CYS' and pdb_content[i][3] == 'SG  ':
             SG.append(pdb_content[i])
 
     # disulphide bonds
@@ -618,10 +618,10 @@ def AmberPDB(pdb, workdir, logfile,keep_h):
     # C-term fix
     for i in range(0, len(pdb_content)):
         pattern = [pdb_content[i][7], pdb_content[i][8]]
-        if pattern in Cterms and (pdb_content[i][3] == ' O1 ' or pdb_content[i][3] == ' OC1'):
-            pdb_content[i][3] = ' O  '
-        if pattern in Cterms and (pdb_content[i][3] == ' O2 ' or pdb_content[i][3] == ' OC2'):
-            pdb_content[i][3] = ' OXT'
+        if pattern in Cterms and (pdb_content[i][3] == 'O1  ' or pdb_content[i][3] == 'OC1 '):
+            pdb_content[i][3] = 'O   '
+        if pattern in Cterms and (pdb_content[i][3] == 'O2  ' or pdb_content[i][3] == 'OC2 '):
+            pdb_content[i][3] = 'OXT '
 
     if keep_h:
         pdb_noH = pdb_content
@@ -854,8 +854,8 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
 
     # Isoleucine fix
     for i in range(0, len(pdb_content)):
-        if pdb_content[i][5] == 'ILE' and pdb_content[i][3] == ' CD ':
-            pdb_content[i][3] = ' CD1'
+        if pdb_content[i][5] == 'ILE' and pdb_content[i][3] == 'CD  ':
+            pdb_content[i][3] = 'CD1 '
 
     if keep_h:
         pdb_noH = pdb_content
@@ -870,7 +870,7 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
     # Sulfur atoms
     SG = []
     for i in range(0, len(pdb_content)):
-        if ( pdb_content[i][5] == 'CYS' or pdb_content[i][5] == 'CYX') and pdb_content[i][3] == ' SG ':
+        if ( pdb_content[i][5] == 'CYS' or pdb_content[i][5] == 'CYX') and pdb_content[i][3] == 'SG  ':
             SG.append(pdb_content[i])
             
 
@@ -896,6 +896,14 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
             bridge_index = S_keys.index(id_tag)
             if bridge[bridge_index] == 1:
                 pdb_content[i][5] = 'CYX'
+
+    # C-term fix
+    for i in range(0, len(pdb_content)):
+        pattern = [pdb_content[i][7], pdb_content[i][8]]
+        if pattern in Cterms and (pdb_content[i][3] == 'O1  ' or pdb_content[i][3] == 'OC1 '):
+            pdb_content[i][3] = 'O   '
+        if pattern in Cterms and (pdb_content[i][3] == 'O2  ' or pdb_content[i][3] == 'OC2 '):
+            pdb_content[i][3] = 'OXT '
     
 
     # atom number, residue number and chain ID sorting
@@ -955,7 +963,7 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
     # Sulfur atoms with sorted numbering
     SG = []
     for i in range(0, len(pdb_sorted)):
-        if ( pdb_sorted[i][5] == 'CYS' or pdb_sorted[i][5] == 'CYX') and pdb_sorted[i][3] == ' SG ':
+        if ( pdb_sorted[i][5] == 'CYS' or pdb_sorted[i][5] == 'CYX') and pdb_sorted[i][3] == 'SG  ':
             SG.append(pdb_sorted[i])
             
 
@@ -974,18 +982,33 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
                     bridge.append(1)
                     bridge.append(1)
 
-    # C1 atoms
+    for S_key in S_keys:
+        for i in range(0, len(pdb_sorted)):
+            if(pdb_sorted[i][5] == 'CYS') and (pdb_sorted[i][8].strip() == S_key[2].strip()):
+                pdb_sorted[i][5] = "CYX"
+                #print(pdb_sorted[i])
+                #print(S_key)
+
+    #!!!!!! In this for you can add all the cases for glycan attachments different from canonical C1
+    #!!!!!! This must be the case for furanose sugars
+    # C1 atoms and other sugar attachments
     C1 = []
     for i in range(0, len(pdb_sorted)):
-        if (pdb_sorted[i][3] == ' C1 '):
+        if (pdb_sorted[i][3] == 'C1  ' and pdb_sorted[i][5] != '0SA'):
             C1.append(pdb_sorted[i])
+            #print(pdb_sorted[i])
+        elif (pdb_sorted[i][3] == 'C2  ' and pdb_sorted[i][5] == '0SA'):
+            C1.append(pdb_sorted[i])
+
 
     # NLN , O atoms
     oxigen_code= re.compile('\s*O[0-6]\s*')
+    print(oxigen_code)
     others_to_c1 = []
     for i in range(0, len(pdb_sorted)):
-        if (pdb_sorted[i][5] == 'NLN' or ( gly_code.match(pdb_sorted[i][5]) and oxigen_code.match(pdb_sorted[i][3]) )):
+        if ((pdb_sorted[i][5] == 'NLN' and pdb_sorted[i][3] == 'ND2 ') or ( gly_code.match(pdb_sorted[i][5]) and oxigen_code.match(pdb_sorted[i][3]) )):
             others_to_c1.append(pdb_sorted[i])
+            print(pdb_sorted[i])
 
    
     # Other Bonds
@@ -1903,7 +1926,7 @@ Option     example      Type        Description
                                     calculated (default: all)
 -g                      Input(opt)  Add terms for glycans treatment
 -------------------------------------------------------------------------
-SYNOPSYS: REBELOT.py  -m m  -f traj.pdb  --minrange 1 --maxrange 100
+SYNOPSYS: REBELOT.py  -m c  -f traj.pdb  --minrange 1 --maxrange 100
 
 =========
 | BEPPE | (-m b)
@@ -1947,6 +1970,24 @@ Option      example         Type        Description
 -g                          Input(opt)  Add terms for glycans treatment
 -------------------------------------------------------------------------
 SYNOPSYS: REBELOT.py  -m b  -f structure.pdb  -c 15 -t
+
+====================
+| GLOBAL ARGUMENTS | 
+====================
+In this section of the help, the other arguments of the program are
+reported. These arguments are in common with all the different modes 
+(REBELOT SINGLE / REBELOT MULTIFRAME / REBELOT CLUSTER / BEPPE)
+=========================================================================
+Option         example      Type        Description
+-------------------------------------------------------------------------
+--dielectric   78.4         Input(opt)  Dielectric constant value.
+--py                        Input(opt)  Select python instead of perl to
+                                        perform calculation.
+--mpi          16           Input(opt)  Number of mpi threads for
+                                        sander.MPI step.
+--keep_h                    Input(opt)  Keep hydrogens original PDB
+                                        hydrogen atoms for tleap steps.
+-------------------------------------------------------------------------
 
 
 CHANGELOG VERSIONS:
