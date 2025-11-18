@@ -1003,12 +1003,12 @@ def AmberPDB_Glycans(pdb, workdir, logfile,keep_h):
 
     # NLN , O atoms
     oxigen_code= re.compile('\s*O[0-6]\s*')
-    print(oxigen_code)
+    #print(oxigen_code)
     others_to_c1 = []
     for i in range(0, len(pdb_sorted)):
         if ((pdb_sorted[i][5] == 'NLN' and pdb_sorted[i][3] == 'ND2 ') or ( gly_code.match(pdb_sorted[i][5]) and oxigen_code.match(pdb_sorted[i][3]) )):
             others_to_c1.append(pdb_sorted[i])
-            print(pdb_sorted[i])
+            #print(pdb_sorted[i])
 
    
     # Other Bonds
